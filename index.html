@@ -31,7 +31,7 @@
 
     .app {
       display: grid;
-      grid-template-columns: minmax(0, 1.1fr) minmax(340px, 1fr);
+      grid-template-columns: minmax(0, 1.3fr) minmax(360px, 1fr);
       height: 100vh;
       background: var(--bg);
     }
@@ -57,9 +57,9 @@
     .preview-box {
       position: relative;
       background: #000000;
-      padding: 16px;
+      padding: 18px;
       border-radius: 6px;
-      box-shadow: 0 0 0 1px #111827, 0 12px 35px rgba(0, 0, 0, 0.8);
+      box-shadow: 0 0 0 1px #111827, 0 18px 50px rgba(0, 0, 0, 0.9);
     }
 
     .preview-label {
@@ -76,15 +76,15 @@
     #previewCanvas {
       display: block;
       background: #111827;
-      width: 420px;
-      height: 420px;
+      width: 640px;   /* bigger preview */
+      height: 640px;
       image-rendering: pixelated;
     }
 
-    @media (max-width: 600px) {
+    @media (max-width: 900px) {
       #previewCanvas {
-        width: 280px;
-        height: 280px;
+        width: 360px;
+        height: 360px;
       }
     }
 
@@ -281,7 +281,7 @@
     <div class="header">
       <div>
         <div class="title">Pixel Wave Lab</div>
-        <div class="subtitle">Real-time pixel animation without checker dithering</div>
+        <div class="subtitle">20 animation patterns · adjustable pixel grid</div>
       </div>
       <div class="badge">Dither Machine</div>
     </div>
@@ -293,8 +293,8 @@
         <div class="panel-col">
           <h4>Presets</h4>
           <select id="palettePreset">
-            <option value="demo">Demo rainbow</option>
             <option value="lava">Lava red</option>
+            <option value="demo">Demo rainbow</option>
             <option value="sunset">Warm sunset</option>
             <option value="aqua">Aqua blue</option>
             <option value="cga">CGA</option>
@@ -321,28 +321,43 @@
         <input id="equalizeStops" type="checkbox" checked />
         <label for="equalizeStops">Equalize stop percentages</label>
       </div>
-      <div class="small">Up to 6 stops are blended into the plasma gradient.</div>
+      <div class="small">Up to 6 stops are blended into the wave gradient.</div>
     </div>
 
-    <!-- Wave & Flow -->
+    <!-- Pattern & Flow -->
     <div class="panel">
-      <h3>Wave Pattern &amp; Flow</h3>
+      <h3>Pattern &amp; Flow</h3>
       <div class="panel-row">
         <div class="panel-col">
-          <h4>Wave pattern</h4>
+          <h4>Pattern (20 modes)</h4>
           <label style="margin-bottom:3px;">
             Mode
-            <select id="waveMode" style="margin-left:4px;">
-              <option value="plasma" selected>Plasma</option>
-              <option value="fluid">Fluid blobs</option>
-              <option value="bands">Diagonal bands</option>
+            <select id="patternMode" style="margin-left:4px;">
+              <option value="plasma">Plasma</option>
+              <option value="lava">Lava veins</option>
+              <option value="ocean">Ocean waves</option>
+              <option value="diagonalBands">Diagonal bands</option>
+              <option value="horizontalWaves">Horizontal waves</option>
+              <option value="verticalWaves">Vertical waves</option>
               <option value="rings">Rings</option>
+              <option value="ripples">Ripples</option>
+              <option value="crossRipples">Cross ripples</option>
               <option value="turbulence">Turbulence</option>
+              <option value="storm">Storm front</option>
+              <option value="spiralIn">Spiral in</option>
+              <option value="spiralOut">Spiral out</option>
+              <option value="vortex">Vortex</option>
+              <option value="nebula">Nebula</option>
+              <option value="glitch">Glitch</option>
+              <option value="dunes">Dunes</option>
+              <option value="stairs">Stair steps</option>
+              <option value="wavesOffset">Offset waves</option>
+              <option value="cells">Cell clusters</option>
             </select>
           </label>
           <div class="slider-row">
-            <label>Pixel size <span class="value" id="pixelSizeVal"></span></label>
-            <input id="pixelSize" type="range" min="2" max="32" value="8" />
+            <label>Pixel grid <span class="value" id="gridVal"></span></label>
+            <input id="pixelGrid" type="range" min="8" max="160" value="80" />
           </div>
           <div class="slider-row">
             <label>Warp strength <span class="value" id="warpVal"></span></label>
@@ -350,22 +365,22 @@
           </div>
         </div>
         <div class="panel-col">
-          <h4>Flow / animation</h4>
+          <h4>Flow</h4>
           <label style="margin-bottom:3px;">
             Flow mode
             <select id="flowMode" style="margin-left:4px;">
-              <option value="off">Static</option>
-              <option value="scrollX">Scroll X</option>
+              <option value="scrollX" selected>Scroll X</option>
               <option value="scrollY">Scroll Y</option>
               <option value="diag">Diagonal</option>
               <option value="swirl">Swirl</option>
               <option value="pulse">Pulse</option>
               <option value="noise">Noise drift</option>
+              <option value="off">Static</option>
             </select>
           </label>
           <div class="slider-row">
             <label>Speed <span class="value" id="speedVal"></span></label>
-            <input id="animSpeed" type="range" min="0" max="100" value="30" />
+            <input id="animSpeed" type="range" min="0" max="100" value="40" />
           </div>
           <div class="slider-row">
             <label>Contrast <span class="value" id="contrastVal"></span></label>
@@ -374,7 +389,7 @@
         </div>
       </div>
       <div class="footer-note">
-        These options affect the <strongpixel>pixelated waves</strong> only — no Bayer / checker pattern anywhere.
+        Pixel grid = how many blocks per side (e.g. 32×32, 80×80, 128×128). Bigger grid = more pixels, smaller blocks.
       </div>
     </div>
 
@@ -416,7 +431,7 @@
             Canvas size
             <input id="exportSize" type="number" min="64" max="512" step="16" value="256" />
           </label>
-          <div class="small">Preview always uses this size.</div>
+          <div class="small">Preview uses this resolution (scaled to big window).</div>
         </div>
         <div class="panel-col">
           <label>
@@ -431,14 +446,14 @@
         <button id="btnExportSprite">Export sprite-sheet PNG (loop)</button>
       </div>
       <div class="footer-note">
-        Sprite sheet = frames laid out horizontally. Drop into your engine and animate across.
+        Sprite sheet = frames laid out horizontally. Drop into your game / GIF tool and animate across.
       </div>
     </div>
   </div>
 </div>
 
 <script>
-/* ===== Utility ===== */
+/* ==== Utility ==== */
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 
@@ -451,14 +466,14 @@ function hexToRgb(hex) {
   return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
 }
 
-/* ===== Palette UI ===== */
+/* ==== Palette / color stops ==== */
 const colorSlotsEl = document.getElementById("colorSlots");
 const palettePresetEl = document.getElementById("palettePreset");
 const equalizeStopsEl = document.getElementById("equalizeStops");
 
 const PALETTES = {
-  demo: ["#e9345c", "#ff9200", "#fede72", "#2cb299", "#74d6f5", "#b2689e"],
   lava: ["#2b0000", "#4d0505", "#960707", "#ff1f1f", "#ffb347"],
+  demo: ["#e9345c", "#ff9200", "#fede72", "#2cb299", "#74d6f5", "#b2689e"],
   sunset: ["#ff3b3b", "#ff8a3b", "#ffd75d", "#f9f4e8"],
   aqua: ["#031b3b", "#0c88ff", "#36d9ff", "#8af4ff"],
   cga: ["#000000", "#55ffff", "#ff55ff", "#ffffff"],
@@ -485,6 +500,7 @@ function createColorSlots() {
     colorInput.addEventListener("input", () => {
       hexInput.value = colorInput.value.toLowerCase();
     });
+
     hexInput.addEventListener("change", () => {
       let v = hexInput.value.trim();
       if (!v.startsWith("#")) v = "#" + v;
@@ -502,7 +518,7 @@ function createColorSlots() {
 }
 
 function applyPalettePreset(name) {
-  const list = PALETTES[name] || PALETTES.demo;
+  const list = PALETTES[name] || PALETTES.lava;
   for (let i = 0; i < MAX_STOPS; i++) {
     const val = list[i] || list[list.length - 1];
     colorInputs[i].colorInput.value = val;
@@ -522,11 +538,11 @@ function getStops() {
   return stops;
 }
 
-/* ===== UI refs ===== */
+/* ==== UI elements ==== */
 const stepsEl = document.getElementById("steps");
 const posterizeEl = document.getElementById("posterize");
-const waveModeEl = document.getElementById("waveMode");
-const pixelSizeEl = document.getElementById("pixelSize");
+const patternModeEl = document.getElementById("patternMode");
+const pixelGridEl = document.getElementById("pixelGrid");
 const warpEl = document.getElementById("warp");
 const flowModeEl = document.getElementById("flowMode");
 const animSpeedEl = document.getElementById("animSpeed");
@@ -540,7 +556,7 @@ const exportFramesEl = document.getElementById("exportFrames");
 
 const stepsVal = document.getElementById("stepsVal");
 const posterVal = document.getElementById("posterVal");
-const pixelSizeVal = document.getElementById("pixelSizeVal");
+const gridVal = document.getElementById("gridVal");
 const warpVal = document.getElementById("warpVal");
 const speedVal = document.getElementById("speedVal");
 const contrastVal = document.getElementById("contrastVal");
@@ -550,7 +566,8 @@ const noiseVal = document.getElementById("noiseVal");
 function updateLabels() {
   stepsVal.textContent = stepsEl.value;
   posterVal.textContent = posterizeEl.value;
-  pixelSizeVal.textContent = pixelSizeEl.value;
+  const g = pixelGridEl.value;
+  gridVal.textContent = g + " × " + g;
   warpVal.textContent = (warpEl.value / 10).toFixed(1);
   speedVal.textContent = (animSpeedEl.value / 10).toFixed(1);
   contrastVal.textContent = (contrastEl.value / 10).toFixed(1);
@@ -558,7 +575,7 @@ function updateLabels() {
   noiseVal.textContent = (noiseAmountEl.value / 10).toFixed(1);
 }
 
-/* ===== Gradient / sampling ===== */
+/* ==== Gradient sampling ==== */
 function sampleGradient(t, stops, posterLevels) {
   t = clamp01(t);
   if (posterLevels > 0) {
@@ -587,77 +604,176 @@ function sampleGradient(t, stops, posterLevels) {
   };
 }
 
-/* ===== Wave field functions (no checker) ===== */
-function waveField(nx, ny, t, mode, warp, contrast) {
-  // base coordinates
-  let x = nx, y = ny;
-
+/* ==== Wave field (20 patterns, no checker) ==== */
+function waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode) {
+  let x = nx;
+  let y = ny;
   const w = warp / 100.0;
-  const time = t * 0.0005;
+  const t = timeMs * 0.0005;
 
-  // flow mode acts on coords
-  const flow = flowModeEl.value;
-  const speed = parseInt(animSpeedEl.value, 10) / 40.0;
-
-  if (flow === "scrollX") x += time * speed;
-  else if (flow === "scrollY") y += time * speed;
-  else if (flow === "diag") { x += time * speed; y += time * speed * 0.7; }
-  else if (flow === "swirl") {
+  // Flow transforms
+  if (flowMode === "scrollX") {
+    x += t * 0.6;
+  } else if (flowMode === "scrollY") {
+    y += t * 0.6;
+  } else if (flowMode === "diag") {
+    x += t * 0.5;
+    y += t * 0.35;
+  } else if (flowMode === "swirl") {
     const cx = 0.5, cy = 0.5;
     const dx = x - cx, dy = y - cy;
     const r = Math.sqrt(dx * dx + dy * dy);
-    const ang = Math.atan2(dy, dx) + time * speed * (0.1 + r * 0.4);
+    const ang = Math.atan2(dy, dx) + t * (0.4 + r * 0.8);
     x = cx + Math.cos(ang) * r;
     y = cy + Math.sin(ang) * r;
-  }
-  else if (flow === "pulse") {
-    const puls = 0.3 + 0.3 * Math.sin(time * 4.0);
-    x += (x - 0.5) * puls * speed;
-    y += (y - 0.5) * puls * speed;
-  }
-  else if (flow === "noise") {
-    x += Math.sin((x + time) * 8.0) * 0.02 * speed;
-    y += Math.cos((y - time) * 7.0) * 0.02 * speed;
+  } else if (flowMode === "pulse") {
+    const puls = 0.2 + 0.2 * Math.sin(t * 5.0);
+    x += (x - 0.5) * puls;
+    y += (y - 0.5) * puls;
+  } else if (flowMode === "noise") {
+    x += Math.sin((x + t) * 7.3) * 0.04;
+    y += Math.cos((y - t) * 6.7) * 0.04;
   }
 
-  // warp
-  x += Math.sin((y + time) * 6.0) * w;
-  y += Math.cos((x - time) * 5.0) * w;
+  // Warp
+  x += Math.sin((y + t) * 6.0) * w;
+  y += Math.cos((x - t) * 5.0) * w;
 
-  // pattern value
-  let v;
-  if (mode === "plasma") {
-    v = Math.sin(x * 8.0 + time * 2.0) +
-        Math.sin((x + y) * 6.0 - time * 1.7) +
-        Math.sin(Math.sqrt(x * x + y * y) * 10.0 + time * 1.3);
-    v = v / 3.0;
-  } else if (mode === "fluid") {
-    v = Math.sin(x * 4.0 + Math.sin(y * 7.0 + time * 1.5)) +
-        Math.cos(y * 4.5 + Math.cos(x * 5.0 - time * 1.2));
-    v = v / 2.0;
-  } else if (mode === "bands") {
-    v = Math.sin((x * 6.0 + y * 10.0) + time * 3.0);
-  } else if (mode === "rings") {
-    const cx = 0.5, cy = 0.5;
-    const dx = x - cx, dy = y - cy;
-    const r = Math.sqrt(dx * dx + dy * dy);
-    v = Math.sin(r * 18.0 - time * 2.0);
-  } else if (mode === "turbulence") {
-    v = Math.sin(x * 5.0 + Math.sin(y * 8.0 + time * 3.0)) +
-        Math.sin(y * 9.0 + Math.cos(x * 7.0 - time * 2.0));
-    v = v / 2.0;
-  } else {
-    v = Math.sin(x * 8.0 + y * 8.0 + time * 2.0);
+  let v = 0.0;
+
+  switch (pattern) {
+    case "plasma":
+      v = Math.sin(x * 8.0 + t * 2.0)
+        + Math.sin((x + y) * 6.0 - t * 1.7)
+        + Math.sin(Math.sqrt(x * x + y * y) * 10.0 + t * 1.3);
+      v /= 3.0;
+      break;
+    case "lava":
+      v = Math.sin(x * 10.0 + t * 3.0) * 0.6
+        + Math.cos(y * 6.0 - t * 2.0) * 0.4
+        + Math.sin((x - y) * 12.0 + t * 1.5) * 0.4;
+      v = Math.max(v, Math.sin(y * 14.0 - t * 4.0) * 0.4);
+      break;
+    case "ocean":
+      v = Math.sin(x * 4.0 + t * 1.4)
+        + Math.sin(y * 8.0 + t * 2.0) * 0.7
+        + Math.cos((x + y) * 3.0 - t * 1.0) * 0.5;
+      v /= 2.0;
+      break;
+    case "diagonalBands":
+      v = Math.sin((x * 8.0 + y * 12.0) + t * 3.0);
+      break;
+    case "horizontalWaves":
+      v = Math.sin(y * 12.0 + t * 3.0)
+        + Math.sin((y + x * 0.5) * 6.0 - t * 2.0) * 0.6;
+      v /= 1.6;
+      break;
+    case "verticalWaves":
+      v = Math.sin(x * 12.0 + t * 3.0)
+        + Math.sin((x + y * 0.5) * 6.0 - t * 2.0) * 0.6;
+      v /= 1.6;
+      break;
+    case "rings": {
+      const cx = 0.5, cy = 0.5;
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      v = Math.sin(r * 18.0 - t * 2.0)
+        + Math.sin(r * 10.0 + t * 1.4) * 0.5;
+      v /= 1.5;
+      break;
+    }
+    case "ripples": {
+      const cx = 0.3 + 0.2 * Math.sin(t * 0.8);
+      const cy = 0.3 + 0.2 * Math.cos(t * 0.9);
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      v = Math.sin(r * 22.0 - t * 4.0);
+      break;
+    }
+    case "crossRipples":
+      v = Math.sin((x + y) * 14.0 + t * 2.4)
+        + Math.sin((x - y) * 14.0 - t * 2.2);
+      v /= 2.0;
+      break;
+    case "turbulence":
+      v = Math.sin(x * 5.0 + Math.sin(y * 8.0 + t * 3.0))
+        + Math.sin(y * 9.0 + Math.cos(x * 7.0 - t * 2.0));
+      v /= 2.0;
+      break;
+    case "storm":
+      v = Math.sin((x * 7.0 + y * 3.0) + t * 4.0)
+        + Math.cos((x * 3.0 - y * 8.0) - t * 2.5)
+        + Math.sin(y * 18.0 - t * 5.0) * 0.6;
+      v /= 2.6;
+      break;
+    case "spiralIn": {
+      const cx = 0.5, cy = 0.5;
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(dy, dx);
+      v = Math.sin(r * 20.0 - ang * 4.0 + t * 3.0);
+      break;
+    }
+    case "spiralOut": {
+      const cx = 0.5, cy = 0.5;
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(dy, dx);
+      v = Math.sin(r * 20.0 + ang * 4.0 - t * 3.0);
+      break;
+    }
+    case "vortex": {
+      const cx = 0.5, cy = 0.5;
+      const dx = x - cx, dy = y - cy;
+      const r = Math.sqrt(dx * dx + dy * dy);
+      const ang = Math.atan2(dy, dx) + Math.sin(t * 1.5) * 0.3;
+      v = Math.sin((r * 22.0) + ang * 8.0 - t * 3.5);
+      break;
+    }
+    case "nebula":
+      v = Math.sin(x * 4.0 + t * 1.3)
+        + Math.sin((x + y) * 5.0 - t * 1.7)
+        + Math.sin((x * 2.0 - y * 6.0) + t * 2.1);
+      v /= 3.0;
+      break;
+    case "glitch":
+      v = Math.sin(x * 16.0 + t * 6.0)
+        + Math.sin(y * 3.0 - t * 1.5) * 0.5
+        + Math.sin((x * 9.0 - y * 7.0) + t * 4.0) * 0.6;
+      v /= 2.1;
+      break;
+    case "dunes":
+      v = Math.sin(x * 5.0 + t * 1.8)
+        + Math.sin((x * 2.5 + y * 4.0) * 2.0 - t * 0.9) * 0.6;
+      v /= 1.6;
+      break;
+    case "stairs":
+      v = Math.sin(Math.floor(x * 10.0) * 0.6 + t * 2.5)
+        + Math.sin(y * 10.0 - t * 3.0) * 0.6;
+      v /= 1.6;
+      break;
+    case "wavesOffset":
+      v = Math.sin(x * 8.0 + t * 2.5)
+        + Math.sin((x + 0.25) * 8.0 - t * 3.0) * 0.7
+        + Math.sin(y * 5.0 + t * 1.2) * 0.5;
+      v /= 2.0;
+      break;
+    case "cells":
+      v = Math.sin(Math.floor(x * 12.0) + t * 3.0)
+        + Math.cos(Math.floor(y * 12.0) - t * 2.0);
+      v /= 2.0;
+      break;
+    default:
+      v = Math.sin(x * 8.0 + y * 8.0 + t * 2.0);
   }
 
-  // contrast curve
   const c = contrast / 20.0;
   let tval = 0.5 + v * 0.5;
-  tval = Math.pow(tval, 1.0 + c);
+  tval = Math.pow(clamp01(tval), 1.0 + c);
   return clamp01(tval);
 }
 
-/* ===== Render ===== */
+/* ==== Render ==== */
 const preview = document.getElementById("previewCanvas");
 const pctx = preview.getContext("2d");
 let lastSize = parseInt(exportSizeEl.value, 10) || 256;
@@ -672,20 +788,22 @@ function resizePreviewIfNeeded() {
 }
 
 function drawFrame(ctx, size, timeMs) {
-  const pixelSize = parseInt(pixelSizeEl.value, 10) || 8;
-  const cols = Math.ceil(size / pixelSize);
-  const rows = Math.ceil(size / pixelSize);
+  const grid = parseInt(pixelGridEl.value, 10) || 32;
+  const cellSize = size / grid;
+  const cols = grid;
+  const rows = grid;
 
   const stops = getStops();
   const steps = parseInt(stepsEl.value, 10);
   const poster = parseInt(posterizeEl.value, 10);
-  const waveMode = waveModeEl.value;
+  const pattern = patternModeEl.value;
   const warp = parseInt(warpEl.value, 10);
   const contrast = parseInt(contrastEl.value, 10);
   const angleDeg = parseFloat(angleEl.value);
   const reverse = reverseGradientEl.checked;
   const noiseAmt = parseInt(noiseAmountEl.value, 10) / 255.0;
   const showGrid = previewGridEl.checked;
+  const flowMode = flowModeEl.value;
 
   const angleRad = angleDeg * Math.PI / 180;
   const ca = Math.cos(angleRad);
@@ -693,23 +811,21 @@ function drawFrame(ctx, size, timeMs) {
 
   for (let j = 0; j < rows; j++) {
     for (let i = 0; i < cols; i++) {
-      const cx = (i + 0.5) * pixelSize;
-      const cy = (j + 0.5) * pixelSize;
-
+      const cx = (i + 0.5) * cellSize;
+      const cy = (j + 0.5) * cellSize;
       const nx = cx / size;
       const ny = cy / size;
 
-      // gradient position along angle
+      // gradient line
       let gx = nx - 0.5, gy = ny - 0.5;
       const gpos = gx * ca - gy * sa;
-      let baseGradient = 0.5 + gpos;
-      baseGradient = clamp01(baseGradient);
+      let baseGrad = 0.5 + gpos;
+      baseGrad = clamp01(baseGrad);
 
-      // wave field value
-      const waveVal = waveField(nx, ny, timeMs, waveMode, warp, contrast);
-      let combined = baseGradient * 0.4 + waveVal * 0.6;
+      // wave value
+      const waveVal = waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode);
+      let combined = baseGrad * 0.35 + waveVal * 0.65;
 
-      // noise jitter
       if (noiseAmt > 0) {
         const seed = (i * 374761393 + j * 668265263) ^ (timeMs | 0);
         const rnd = ((seed ^ (seed >> 13)) * 1274126177 >>> 16) & 255;
@@ -719,26 +835,23 @@ function drawFrame(ctx, size, timeMs) {
 
       if (reverse) combined = 1.0 - combined;
 
-      // quantize bands
       const q = Math.round(combined * (steps - 1)) / (steps - 1);
       const color = sampleGradient(q, stops, poster);
-
       ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
-      ctx.fillRect(i * pixelSize, j * pixelSize, pixelSize, pixelSize);
+      ctx.fillRect(i * cellSize, j * cellSize, Math.ceil(cellSize) + 1, Math.ceil(cellSize) + 1);
     }
   }
 
-  // optional grid overlay
   if (showGrid) {
     ctx.strokeStyle = "rgba(0,0,0,0.22)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < size; x += pixelSize) {
+    for (let x = 0; x < size; x += cellSize) {
       ctx.beginPath();
       ctx.moveTo(x + 0.5, 0);
       ctx.lineTo(x + 0.5, size);
       ctx.stroke();
     }
-    for (let y = 0; y < size; y += pixelSize) {
+    for (let y = 0; y < size; y += cellSize) {
       ctx.beginPath();
       ctx.moveTo(0, y + 0.5);
       ctx.lineTo(size, y + 0.5);
@@ -747,22 +860,20 @@ function drawFrame(ctx, size, timeMs) {
   }
 }
 
-/* ===== Animation loop ===== */
+/* ==== Animation loop ==== */
 let startTime = performance.now();
 function loop() {
   resizePreviewIfNeeded();
   const now = performance.now();
-  const flow = flowModeEl.value;
-  const speed = parseInt(animSpeedEl.value, 10) / 30.0;
   let t = now - startTime;
-  if (flow === "off") t = 0;
-  else t *= speed;
+  if (flowModeEl.value === "off") t = 0;
+  else t *= (parseInt(animSpeedEl.value, 10) / 30.0);
 
   drawFrame(pctx, preview.width, t);
   requestAnimationFrame(loop);
 }
 
-/* ===== Export ===== */
+/* ==== Export helpers ==== */
 function downloadDataUrl(url, filename) {
   const a = document.createElement("a");
   a.href = url;
@@ -779,12 +890,9 @@ document.getElementById("btnExportPNG").addEventListener("click", () => {
   canvas.height = size;
   const ctx = canvas.getContext("2d");
 
-  const now = performance.now();
-  const flow = flowModeEl.value;
-  const speed = parseInt(animSpeedEl.value, 10) / 30.0;
-  let t = now - startTime;
-  if (flow === "off") t = 0;
-  else t *= speed;
+  let t = performance.now() - startTime;
+  if (flowModeEl.value === "off") t = 0;
+  else t *= (parseInt(animSpeedEl.value, 10) / 30.0);
 
   drawFrame(ctx, size, t);
   const url = canvas.toDataURL("image/png");
@@ -800,13 +908,10 @@ document.getElementById("btnExportSprite").addEventListener("click", () => {
   canvas.height = size;
   const ctx = canvas.getContext("2d");
 
-  const flow = flowModeEl.value;
-  const speed = parseInt(animSpeedEl.value, 10) / 30.0;
-
   for (let i = 0; i < frames; i++) {
-    let localT = (i / frames) * 4000; // 4s loop
-    if (flow === "off") localT = 0;
-    else localT *= speed;
+    let localT = (i / frames) * 4000;
+    if (flowModeEl.value === "off") localT = 0;
+    else localT *= (parseInt(animSpeedEl.value, 10) / 30.0);
 
     const temp = document.createElement("canvas");
     temp.width = size;
@@ -821,9 +926,9 @@ document.getElementById("btnExportSprite").addEventListener("click", () => {
   downloadDataUrl(url, "pixel_wave_sprite_sheet.png");
 });
 
-/* ===== Init ===== */
+/* ==== Init ==== */
 createColorSlots();
-applyPalettePreset("lava"); // start with red lava, like your example
+applyPalettePreset("lava"); // start like your lava example
 updateLabels();
 
 palettePresetEl.addEventListener("change", () => {
@@ -831,7 +936,7 @@ palettePresetEl.addEventListener("change", () => {
 });
 
 [
-  stepsEl, posterizeEl, pixelSizeEl, warpEl,
+  stepsEl, posterizeEl, pixelGridEl, warpEl,
   animSpeedEl, contrastEl, angleEl, noiseAmountEl
 ].forEach(el => el.addEventListener("input", updateLabels));
 
