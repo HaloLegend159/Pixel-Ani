@@ -76,9 +76,9 @@
     #previewCanvas {
       display: block;
       background: #111827;
-      width: 640px;   /* large display size */
+      width: 640px;   /* big display size */
       height: 640px;
-      image-rendering: pixelated; /* crucial for crisp upscaling */
+      image-rendering: pixelated;
     }
 
     @media (max-width: 900px) {
@@ -570,7 +570,7 @@ function updateLabels() {
   noiseVal.textContent = (noiseAmountEl.value / 10).toFixed(1);
 }
 
-/* ---------- Gradient sampling ---------- */
+/* ---------- Gradient sampling (SAFE equalizeStops) ---------- */
 function sampleGradient(t, stops, posterLevels) {
   t = clamp01(t);
   if (posterLevels > 0) {
@@ -579,14 +579,18 @@ function sampleGradient(t, stops, posterLevels) {
   const n = stops.length;
   if (n === 1) return stops[0];
 
+  const useEqualize =
+    !equalizeStopsEl ? true : !!equalizeStopsEl.checked; // never crash
+
   let idxA, idxB, f;
-  if (equalizeStopsEl.checked) {
+  if (useEqualize) {
     const scaled = t * (n - 1);
     idxA = Math.floor(scaled);
     idxB = Math.min(idxA + 1, n - 1);
     f = scaled - idxA;
   } else {
-    const scaled = t * n;
+    // basic mapping: 0..1 across 0..(n-1)
+    const scaled = t * (n - 1);
     idxA = Math.floor(scaled);
     idxB = Math.min(idxA + 1, n - 1);
     f = scaled - idxA;
@@ -933,6 +937,12 @@ palettePresetEl.addEventListener("change", () => {
 pixelGridEl.addEventListener("input", () => {
   syncCanvasToGrid();
 });
+
+if (equalizeStopsEl) {
+  equalizeStopsEl.addEventListener("change", () => {
+    // no-op but forces visual refresh on next frame
+  });
+}
 
 updateLabels();
 requestAnimationFrame(loop);
