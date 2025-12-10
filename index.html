@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Pixel Wave Lab — Sharp Pixels</title>
+  <title>Pixel Wave Lab — True Pixel Grid</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -76,9 +76,9 @@
     #previewCanvas {
       display: block;
       background: #111827;
-      width: 640px;   /* big preview window */
+      width: 640px;   /* large display size */
       height: 640px;
-      image-rendering: pixelated;
+      image-rendering: pixelated; /* crucial for crisp upscaling */
     }
 
     @media (max-width: 900px) {
@@ -268,20 +268,20 @@
 </head>
 <body>
 <div class="app">
-  <!-- PREVIEW -->
+  <!-- LEFT: PREVIEW -->
   <div class="left-pane">
     <div class="preview-box">
       <div class="preview-label">Pixel wave preview</div>
-      <canvas id="previewCanvas" width="256" height="256"></canvas>
+      <canvas id="previewCanvas" width="128" height="128"></canvas>
     </div>
   </div>
 
-  <!-- CONTROLS -->
+  <!-- RIGHT: CONTROLS -->
   <div class="right-pane">
     <div class="header">
       <div>
         <div class="title">Pixel Wave Lab</div>
-        <div class="subtitle">20 animation patterns · sharp pixel grid</div>
+        <div class="subtitle">20 animation patterns · true pixel grid</div>
       </div>
       <div class="badge">Dither Machine</div>
     </div>
@@ -357,7 +357,7 @@
           </label>
           <div class="slider-row">
             <label>Pixel grid <span class="value" id="gridVal"></span></label>
-            <input id="pixelGrid" type="range" min="8" max="160" value="80" />
+            <input id="pixelGrid" type="range" min="16" max="256" value="128" />
           </div>
           <div class="slider-row">
             <label>Warp strength <span class="value" id="warpVal"></span></label>
@@ -389,7 +389,7 @@
         </div>
       </div>
       <div class="footer-note">
-        Pixel grid = how many blocks per side (approx). Bigger grid = more pixels, smaller blocks.
+        Pixel grid = exact number of pixels per side (preview & export).
       </div>
     </div>
 
@@ -428,17 +428,15 @@
       <div class="panel-row">
         <div class="panel-col">
           <label>
-            Canvas size
-            <input id="exportSize" type="number" min="64" max="512" step="16" value="256" />
-          </label>
-          <div class="small">Preview uses this resolution (scaled to big window).</div>
-        </div>
-        <div class="panel-col">
-          <label>
             Frames (loop)
             <input id="exportFrames" type="number" min="4" max="64" step="4" value="24" />
           </label>
           <div class="small">Used for sprite sheet export.</div>
+        </div>
+        <div class="panel-col">
+          <div class="small">
+            Exported PNG resolution always matches the current pixel grid.
+          </div>
         </div>
       </div>
       <div class="button-bar">
@@ -446,14 +444,14 @@
         <button id="btnExportSprite">Export sprite-sheet PNG (loop)</button>
       </div>
       <div class="footer-note">
-        Sprite sheet = frames laid out horizontally. Drop into your game / GIF tool and animate across.
+        Sprite sheet = frames laid out horizontally. Drop into your game / GIF tool and animate.
       </div>
     </div>
   </div>
 </div>
 
 <script>
-/* ==== Utility ==== */
+/* ---------- Utils ---------- */
 function lerp(a, b, t) { return a + (b - a) * t; }
 function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
 
@@ -466,18 +464,18 @@ function hexToRgb(hex) {
   return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
 }
 
-/* ==== Palette / color stops ==== */
+/* ---------- Palette setup ---------- */
 const colorSlotsEl = document.getElementById("colorSlots");
 const palettePresetEl = document.getElementById("palettePreset");
 const equalizeStopsEl = document.getElementById("equalizeStops");
 
 const PALETTES = {
-  lava: ["#2b0000", "#4d0505", "#960707", "#ff1f1f", "#ffb347"],
-  demo: ["#e9345c", "#ff9200", "#fede72", "#2cb299", "#74d6f5", "#b2689e"],
+  lava:   ["#2b0000", "#4d0505", "#960707", "#ff1f1f", "#ffb347"],
+  demo:   ["#e9345c", "#ff9200", "#fede72", "#2cb299", "#74d6f5", "#b2689e"],
   sunset: ["#ff3b3b", "#ff8a3b", "#ffd75d", "#f9f4e8"],
-  aqua: ["#031b3b", "#0c88ff", "#36d9ff", "#8af4ff"],
-  cga: ["#000000", "#55ffff", "#ff55ff", "#ffffff"],
-  mono: ["#080808", "#f5f5f5"],
+  aqua:   ["#031b3b", "#0c88ff", "#36d9ff", "#8af4ff"],
+  cga:    ["#000000", "#55ffff", "#ff55ff", "#ffffff"],
+  mono:   ["#080808", "#f5f5f5"],
 };
 
 const MAX_STOPS = 6;
@@ -538,7 +536,7 @@ function getStops() {
   return stops;
 }
 
-/* ==== UI elements ==== */
+/* ---------- UI elements ---------- */
 const stepsEl = document.getElementById("steps");
 const posterizeEl = document.getElementById("posterize");
 const patternModeEl = document.getElementById("patternMode");
@@ -551,7 +549,6 @@ const angleEl = document.getElementById("angle");
 const reverseGradientEl = document.getElementById("reverseGradient");
 const noiseAmountEl = document.getElementById("noiseAmount");
 const previewGridEl = document.getElementById("previewGrid");
-const exportSizeEl = document.getElementById("exportSize");
 const exportFramesEl = document.getElementById("exportFrames");
 
 const stepsVal = document.getElementById("stepsVal");
@@ -566,8 +563,6 @@ const noiseVal = document.getElementById("noiseVal");
 function updateLabels() {
   stepsVal.textContent = stepsEl.value;
   posterVal.textContent = posterizeEl.value;
-  const g = pixelGridEl.value;
-  gridVal.textContent = g + " × " + g;
   warpVal.textContent = (warpEl.value / 10).toFixed(1);
   speedVal.textContent = (animSpeedEl.value / 10).toFixed(1);
   contrastVal.textContent = (contrastEl.value / 10).toFixed(1);
@@ -575,7 +570,7 @@ function updateLabels() {
   noiseVal.textContent = (noiseAmountEl.value / 10).toFixed(1);
 }
 
-/* ==== Gradient sampling ==== */
+/* ---------- Gradient sampling ---------- */
 function sampleGradient(t, stops, posterLevels) {
   t = clamp01(t);
   if (posterLevels > 0) {
@@ -604,14 +599,13 @@ function sampleGradient(t, stops, posterLevels) {
   };
 }
 
-/* ==== Wave field (20 patterns, no checker) ==== */
+/* ---------- Wave field (patterns) ---------- */
 function waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode) {
   let x = nx;
   let y = ny;
   const w = warp / 100.0;
   const t = timeMs * 0.0005;
 
-  // Flow transforms
   if (flowMode === "scrollX") {
     x += t * 0.6;
   } else if (flowMode === "scrollY") {
@@ -635,7 +629,6 @@ function waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode) {
     y += Math.cos((y - t) * 6.7) * 0.04;
   }
 
-  // Warp
   x += Math.sin((y + t) * 6.0) * w;
   y += Math.cos((x - t) * 5.0) * w;
 
@@ -773,32 +766,20 @@ function waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode) {
   return clamp01(tval);
 }
 
-/* ==== Render ==== */
+/* ---------- Preview & draw ---------- */
 const preview = document.getElementById("previewCanvas");
 const pctx = preview.getContext("2d");
 pctx.imageSmoothingEnabled = false;
 
-let lastSize = parseInt(exportSizeEl.value, 10) || 256;
-
-function resizePreviewIfNeeded() {
-  const size = parseInt(exportSizeEl.value, 10) || 256;
-  if (size !== lastSize) {
-    lastSize = size;
-    preview.width = size;
-    preview.height = size;
-    pctx.imageSmoothingEnabled = false; // reset after resize
-  }
+function syncCanvasToGrid() {
+  const grid = parseInt(pixelGridEl.value, 10) || 128;
+  preview.width = grid;
+  preview.height = grid;
+  pctx.imageSmoothingEnabled = false;
+  gridVal.textContent = grid + " × " + grid;
 }
 
 function drawFrame(ctx, size, timeMs) {
-  // integer-aligned pixels: choose a pixelSize, derive grid from that
-  const targetGrid = parseInt(pixelGridEl.value, 10) || 32;
-  const pixelSize = Math.max(1, Math.round(size / targetGrid));
-  const grid = Math.floor(size / pixelSize);
-  const cellSize = pixelSize;
-  const cols = grid;
-  const rows = grid;
-
   const stops = getStops();
   const steps = parseInt(stepsEl.value, 10);
   const poster = parseInt(posterizeEl.value, 10);
@@ -815,26 +796,26 @@ function drawFrame(ctx, size, timeMs) {
   const ca = Math.cos(angleRad);
   const sa = Math.sin(angleRad);
 
-  for (let j = 0; j < rows; j++) {
-    for (let i = 0; i < cols; i++) {
-      const cx = (i + 0.5) * cellSize;
-      const cy = (j + 0.5) * cellSize;
-      const nx = cx / size;
-      const ny = cy / size;
+  const w = size;
+  const h = size;
 
-      // gradient line
+  ctx.clearRect(0, 0, w, h);
+
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const nx = (x + 0.5) / w;
+      const ny = (y + 0.5) / h;
+
       let gx = nx - 0.5, gy = ny - 0.5;
       const gpos = gx * ca - gy * sa;
       let baseGrad = 0.5 + gpos;
       baseGrad = clamp01(baseGrad);
 
-      // wave value
       const waveVal = waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode);
       let combined = baseGrad * 0.35 + waveVal * 0.65;
 
-      // noise jitter
       if (noiseAmt > 0) {
-        const seed = (i * 374761393 + j * 668265263) ^ (timeMs | 0);
+        const seed = (x * 374761393 + y * 668265263) ^ (timeMs | 0);
         const rnd = ((seed ^ (seed >> 13)) * 1274126177 >>> 16) & 255;
         const n = (rnd / 255.0 - 0.5) * noiseAmt * 2.0;
         combined = clamp01(combined + n);
@@ -845,37 +826,32 @@ function drawFrame(ctx, size, timeMs) {
       const q = Math.round(combined * (steps - 1)) / (steps - 1);
       const color = sampleGradient(q, stops, poster);
       ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
-      ctx.fillRect(
-        i * cellSize,
-        j * cellSize,
-        cellSize,
-        cellSize
-      );
+      ctx.fillRect(x, y, 1, 1);
     }
   }
 
   if (showGrid) {
     ctx.strokeStyle = "rgba(0,0,0,0.22)";
     ctx.lineWidth = 1;
-    for (let x = 0; x < size; x += cellSize) {
+    for (let x = 0; x < w; x++) {
       ctx.beginPath();
       ctx.moveTo(x + 0.5, 0);
-      ctx.lineTo(x + 0.5, size);
+      ctx.lineTo(x + 0.5, h);
       ctx.stroke();
     }
-    for (let y = 0; y < size; y += cellSize) {
+    for (let y = 0; y < h; y++) {
       ctx.beginPath();
       ctx.moveTo(0, y + 0.5);
-      ctx.lineTo(size, y + 0.5);
+      ctx.lineTo(w, y + 0.5);
       ctx.stroke();
     }
   }
 }
 
-/* ==== Animation loop ==== */
+/* ---------- Animation loop ---------- */
 let startTime = performance.now();
+
 function loop() {
-  resizePreviewIfNeeded();
   const now = performance.now();
   let t = now - startTime;
   if (flowModeEl.value === "off") t = 0;
@@ -885,7 +861,7 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-/* ==== Export helpers ==== */
+/* ---------- Export helpers ---------- */
 function downloadDataUrl(url, filename) {
   const a = document.createElement("a");
   a.href = url;
@@ -896,54 +872,53 @@ function downloadDataUrl(url, filename) {
 }
 
 document.getElementById("btnExportPNG").addEventListener("click", () => {
-  const size = parseInt(exportSizeEl.value, 10) || 256;
+  const size = preview.width; // exact pixel grid
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
 
-  let t = performance.now() - startTime;
-  if (flowModeEl.value === "off") t = 0;
-  else t *= (parseInt(animSpeedEl.value, 10) / 30.0);
+  // Copy exactly the current preview pixels:
+  ctx.drawImage(preview, 0, 0);
 
-  drawFrame(ctx, size, t);
   const url = canvas.toDataURL("image/png");
   downloadDataUrl(url, "pixel_wave_frame.png");
 });
 
 document.getElementById("btnExportSprite").addEventListener("click", () => {
-  const size = parseInt(exportSizeEl.value, 10) || 256;
+  const baseSize = preview.width; // exact pixel grid
   const frames = parseInt(exportFramesEl.value, 10) || 24;
 
-  const canvas = document.createElement("canvas");
-  canvas.width = size * frames;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
+  const sheet = document.createElement("canvas");
+  sheet.width = baseSize * frames;
+  sheet.height = baseSize;
+  const sctx = sheet.getContext("2d");
+  sctx.imageSmoothingEnabled = false;
 
   for (let i = 0; i < frames; i++) {
+    const frameCanvas = document.createElement("canvas");
+    frameCanvas.width = baseSize;
+    frameCanvas.height = baseSize;
+    const fctx = frameCanvas.getContext("2d");
+    fctx.imageSmoothingEnabled = false;
+
     let localT = (i / frames) * 4000;
     if (flowModeEl.value === "off") localT = 0;
     else localT *= (parseInt(animSpeedEl.value, 10) / 30.0);
 
-    const temp = document.createElement("canvas");
-    temp.width = size;
-    temp.height = size;
-    const tctx = temp.getContext("2d");
-    tctx.imageSmoothingEnabled = false;
-    drawFrame(tctx, size, localT);
-
-    ctx.drawImage(temp, size * i, 0);
+    drawFrame(fctx, baseSize, localT);
+    sctx.drawImage(frameCanvas, baseSize * i, 0);
   }
 
-  const url = canvas.toDataURL("image/png");
+  const url = sheet.toDataURL("image/png");
   downloadDataUrl(url, "pixel_wave_sprite_sheet.png");
 });
 
-/* ==== Init ==== */
+/* ---------- Init ---------- */
 createColorSlots();
-applyPalettePreset("lava"); // start like your lava example
+applyPalettePreset("lava");
+syncCanvasToGrid();
 updateLabels();
 
 palettePresetEl.addEventListener("change", () => {
@@ -951,12 +926,15 @@ palettePresetEl.addEventListener("change", () => {
 });
 
 [
-  stepsEl, posterizeEl, pixelGridEl, warpEl,
+  stepsEl, posterizeEl, warpEl,
   animSpeedEl, contrastEl, angleEl, noiseAmountEl
 ].forEach(el => el.addEventListener("input", updateLabels));
 
+pixelGridEl.addEventListener("input", () => {
+  syncCanvasToGrid();
+});
+
 updateLabels();
-resizePreviewIfNeeded();
 requestAnimationFrame(loop);
 </script>
 </body>
