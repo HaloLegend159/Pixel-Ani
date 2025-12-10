@@ -26,7 +26,9 @@
         sans-serif;
       background: #000;
       color: var(--text);
-      overflow: hidden;
+      /* allow scrolling on mobile */
+      overflow-x: hidden;
+      overflow-y: auto;
     }
 
     .app {
@@ -41,7 +43,7 @@
         grid-template-columns: minmax(0, 1fr);
         grid-template-rows: auto auto;
         min-height: 100vh;
-        height: auto;
+        height: auto; /* content can grow and scroll */
       }
     }
 
@@ -76,7 +78,7 @@
     #previewCanvas {
       display: block;
       background: #111827;
-      width: 640px;   /* big display size */
+      width: 640px;   /* display size */
       height: 640px;
       image-rendering: pixelated;
     }
@@ -283,7 +285,7 @@
         <div class="title">Pixel Wave Lab</div>
         <div class="subtitle">20 animation patterns · true pixel grid</div>
       </div>
-      <div class="badge">Dither Machine</div>
+      <div class="badge">Wave Engine</div>
     </div>
 
     <!-- Palette -->
@@ -323,7 +325,7 @@
       </div>
       <div class="small">Up to 6 stops are blended into the wave gradient.</div>
 
-      <!-- NEW: gradient preview button -->
+      <!-- Gradient preview toggle -->
       <div class="button-bar" style="margin-top:6px;">
         <button id="btnGradientPreview">Preview gradient (smooth)</button>
       </div>
@@ -408,7 +410,7 @@
             <label>Angle <span class="value" id="angleVal"></span></label>
             <input id="angle" type="range" min="0" max="360" value="45" />
           </div>
-          <!-- NEW: global image rotation -->
+          <!-- Global rotation -->
           <div class="slider-row">
             <label>Rotate image <span class="value" id="globalAngleVal"></span></label>
             <input id="globalAngle" type="range" min="0" max="360" value="0" />
@@ -444,8 +446,12 @@
           <div class="small">Used for sprite sheet export.</div>
         </div>
         <div class="panel-col">
+          <label>
+            Export scale
+            <input id="exportScale" type="number" min="1" max="16" value="4" />
+          </label>
           <div class="small">
-            Exported PNG resolution always matches the current pixel grid.
+            PNG size = pixel grid × scale (nearest-neighbor).
           </div>
         </div>
       </div>
@@ -563,6 +569,7 @@ const reverseGradientEl = document.getElementById("reverseGradient");
 const noiseAmountEl = document.getElementById("noiseAmount");
 const previewGridEl = document.getElementById("previewGrid");
 const exportFramesEl = document.getElementById("exportFrames");
+const exportScaleEl = document.getElementById("exportScale");
 
 const stepsVal = document.getElementById("stepsVal");
 const posterVal = document.getElementById("posterVal");
@@ -594,16 +601,10 @@ function sampleGradient(t, stops, posterLevels) {
   const n = stops.length;
   if (n === 1) return stops[0];
 
-  const useEqualize =
-    !equalizeStopsEl ? true : !!equalizeStopsEl.checked; // never crash
-
-  let idxA, idxB, f;
-  // both branches use same mapping now (safe & simple),
-  // but equalizeStops is still there for future tuning.
   const scaled = t * (n - 1);
-  idxA = Math.floor(scaled);
-  idxB = Math.min(idxA + 1, n - 1);
-  f = scaled - idxA;
+  const idxA = Math.floor(scaled);
+  const idxB = Math.min(idxA + 1, n - 1);
+  const f = scaled - idxA;
 
   const a = stops[idxA], b = stops[idxB];
   return {
@@ -822,11 +823,10 @@ function drawFrame(ctx, size, timeMs) {
 
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
-      // base normalized position
       const nx0 = (x + 0.5) / w;
       const ny0 = (y + 0.5) / h;
 
-      // rotate entire field around center
+      // rotate entire field
       let rx = nx0 - 0.5;
       let ry = ny0 - 0.5;
       if (globalRad !== 0) {
@@ -838,13 +838,12 @@ function drawFrame(ctx, size, timeMs) {
       const nx = rx + 0.5;
       const ny = ry + 0.5;
 
-      // gradient axis (still uses angle slider)
+      // gradient axis
       let gx = nx - 0.5, gy = ny - 0.5;
       const gpos = gx * ca - gy * sa;
       let baseGrad = 0.5 + gpos;
       baseGrad = clamp01(baseGrad);
 
-      // wave field (pattern)
       const waveVal = waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode);
       let combined = baseGrad * 0.35 + waveVal * 0.65;
 
@@ -882,7 +881,7 @@ function drawFrame(ctx, size, timeMs) {
   }
 }
 
-/* ---------- Smooth gradient preview (no pixelation/waves) ---------- */
+/* ---------- Smooth gradient preview ---------- */
 function drawSmoothGradient(ctx, size) {
   const stops = getStops();
   const steps = parseInt(stepsEl.value, 10);
@@ -911,7 +910,6 @@ function drawSmoothGradient(ctx, size) {
       let t = baseGrad;
       if (reverse) t = 1.0 - t;
 
-      // still respect color steps and posterize
       const qSteps = Math.round(t * (steps - 1)) / (steps - 1);
       const color = sampleGradient(qSteps, stops, poster);
       ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
@@ -949,14 +947,17 @@ function downloadDataUrl(url, filename) {
 }
 
 document.getElementById("btnExportPNG").addEventListener("click", () => {
-  const size = preview.width; // exact pixel grid
+  const baseSize = preview.width;
+  const scale = parseInt(exportScaleEl.value, 10) || 1;
+  const outSize = baseSize * scale;
+
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = outSize;
+  canvas.height = outSize;
   const ctx = canvas.getContext("2d");
   ctx.imageSmoothingEnabled = false;
 
-  // Copy exactly the current preview pixels (whether in pixel or gradient mode)
+  ctx.setTransform(scale, 0, 0, scale, 0, 0);
   ctx.drawImage(preview, 0, 0);
 
   const url = canvas.toDataURL("image/png");
@@ -964,12 +965,15 @@ document.getElementById("btnExportPNG").addEventListener("click", () => {
 });
 
 document.getElementById("btnExportSprite").addEventListener("click", () => {
-  const baseSize = preview.width; // exact pixel grid
+  const baseSize = preview.width;
+  const scale = parseInt(exportScaleEl.value, 10) || 1;
   const frames = parseInt(exportFramesEl.value, 10) || 24;
 
+  const frameSize = baseSize * scale;
   const sheet = document.createElement("canvas");
-  sheet.width = baseSize * frames;
-  sheet.height = baseSize;
+  sheet.width = frameSize * frames;
+  sheet.height = frameSize;
+
   const sctx = sheet.getContext("2d");
   sctx.imageSmoothingEnabled = false;
 
@@ -985,7 +989,8 @@ document.getElementById("btnExportSprite").addEventListener("click", () => {
     else localT *= (parseInt(animSpeedEl.value, 10) / 30.0);
 
     drawFrame(fctx, baseSize, localT);
-    sctx.drawImage(frameCanvas, baseSize * i, 0);
+    sctx.setTransform(scale, 0, 0, scale, frameSize * i, 0);
+    sctx.drawImage(frameCanvas, 0, 0);
   }
 
   const url = sheet.toDataURL("image/png");
@@ -1013,7 +1018,7 @@ pixelGridEl.addEventListener("input", () => {
 
 if (equalizeStopsEl) {
   equalizeStopsEl.addEventListener("change", () => {
-    // no-op; next frame will use new mode
+    /* no-op, safe toggle */
   });
 }
 
@@ -1023,895 +1028,6 @@ btnGradientPreview.addEventListener("click", () => {
     ? "Exit gradient preview"
     : "Preview gradient (smooth)";
 });
-
-updateLabels();
-requestAnimationFrame(loop);
-</script>
-</body>
-</html>
-    }
-
-    .preview-label {
-      position: absolute;
-      top: 8px;
-      left: 12px;
-      font-size: 11px;
-      letter-spacing: 0.16em;
-      text-transform: uppercase;
-      color: #9ca3af;
-      pointer-events: none;
-    }
-
-    #previewCanvas {
-      display: block;
-      background: #111827;
-      width: 640px;   /* big display size */
-      height: 640px;
-      image-rendering: pixelated;
-    }
-
-    @media (max-width: 900px) {
-      #previewCanvas {
-        width: 360px;
-        height: 360px;
-      }
-    }
-
-    /* RIGHT: controls */
-    .right-pane {
-      background: var(--bg);
-      padding: 16px 16px 10px;
-      color: var(--text-soft);
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      overflow-y: auto;
-    }
-
-    .header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 2px;
-    }
-
-    .title {
-      font-size: 16px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-      color: var(--text);
-    }
-
-    .subtitle {
-      font-size: 11px;
-      color: var(--text-mute);
-    }
-
-    .badge {
-      font-size: 10px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      background: #151b26;
-      border: 1px solid #4b5563;
-      text-transform: uppercase;
-      letter-spacing: 0.14em;
-      color: #e5e7eb;
-    }
-
-    .panel {
-      background: var(--panel);
-      border-radius: 4px;
-      padding: 8px 10px;
-      border: 1px solid var(--border);
-      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
-    }
-
-    .panel-row {
-      display: flex;
-      gap: 8px;
-      margin-top: 4px;
-    }
-
-    .panel-col { flex: 1; }
-
-    h3 {
-      margin: 0 0 4px;
-      font-size: 12px;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-mute);
-    }
-
-    h4 {
-      margin: 8px 0 4px;
-      font-size: 11px;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-mute);
-    }
-
-    label {
-      font-size: 11px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 4px;
-      color: var(--text-soft);
-    }
-
-    .slider-row {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      margin-bottom: 4px;
-    }
-
-    input[type="range"] { width: 100%; }
-
-    .value {
-      font-variant-numeric: tabular-nums;
-      color: var(--accent-strong);
-      font-size: 11px;
-    }
-
-    select,
-    input[type="number"],
-    input[type="text"] {
-      width: 100%;
-      background: var(--field);
-      border-radius: 3px;
-      border: 1px solid #4b5563;
-      padding: 3px 5px;
-      color: var(--text-soft);
-      font-size: 11px;
-    }
-
-    .color-row {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      margin-bottom: 2px;
-    }
-
-    .color-row input[type="color"] {
-      width: 24px;
-      height: 18px;
-      border: none;
-      padding: 0;
-      background: transparent;
-    }
-
-    .color-row input[type="text"] { flex: 1; }
-
-    .small {
-      font-size: 10px;
-      color: var(--text-mute);
-      margin-top: 2px;
-    }
-
-    .button-bar {
-      display: flex;
-      gap: 6px;
-      margin-top: 6px;
-      flex-wrap: wrap;
-    }
-
-    button {
-      background: var(--panel-dark);
-      border-radius: 3px;
-      border: 1px solid var(--border);
-      color: var(--text-soft);
-      font-size: 11px;
-      padding: 4px 8px;
-      cursor: pointer;
-    }
-
-    button.primary {
-      background: #ffb347;
-      border-color: #f59e0b;
-      color: #111827;
-      font-weight: 600;
-    }
-
-    button:hover { filter: brightness(1.05); }
-    button:active { transform: translateY(1px); }
-
-    .checkbox-row {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 11px;
-      margin: 2px 0;
-    }
-
-    .checkbox-row input[type="checkbox"] { margin: 0; }
-
-    .footer-note {
-      font-size: 10px;
-      color: var(--text-mute);
-      margin-top: 2px;
-    }
-  </style>
-</head>
-<body>
-<div class="app">
-  <!-- LEFT: PREVIEW -->
-  <div class="left-pane">
-    <div class="preview-box">
-      <div class="preview-label">Pixel wave preview</div>
-      <canvas id="previewCanvas" width="128" height="128"></canvas>
-    </div>
-  </div>
-
-  <!-- RIGHT: CONTROLS -->
-  <div class="right-pane">
-    <div class="header">
-      <div>
-        <div class="title">Pixel Wave Lab</div>
-        <div class="subtitle">20 animation patterns · true pixel grid</div>
-      </div>
-      <div class="badge">Dither Machine</div>
-    </div>
-
-    <!-- Palette -->
-    <div class="panel">
-      <h3>Palette</h3>
-      <div class="panel-row">
-        <div class="panel-col">
-          <h4>Presets</h4>
-          <select id="palettePreset">
-            <option value="lava">Lava red</option>
-            <option value="demo">Demo rainbow</option>
-            <option value="sunset">Warm sunset</option>
-            <option value="aqua">Aqua blue</option>
-            <option value="cga">CGA</option>
-            <option value="mono">Monochrome</option>
-          </select>
-          <div class="small">Presets fill the color slots below.</div>
-        </div>
-        <div class="panel-col">
-          <h4>Steps</h4>
-          <div class="slider-row">
-            <label>Color steps <span class="value" id="stepsVal"></span></label>
-            <input id="steps" type="range" min="2" max="16" value="8" />
-          </div>
-          <div class="slider-row">
-            <label>Posterize <span class="value" id="posterVal"></span></label>
-            <input id="posterize" type="range" min="2" max="32" value="16" />
-          </div>
-        </div>
-      </div>
-
-      <h4>Manual colors</h4>
-      <div id="colorSlots"></div>
-      <div class="checkbox-row">
-        <input id="equalizeStops" type="checkbox" checked />
-        <label for="equalizeStops">Equalize stop percentages</label>
-      </div>
-      <div class="small">Up to 6 stops are blended into the wave gradient.</div>
-    </div>
-
-    <!-- Pattern & Flow -->
-    <div class="panel">
-      <h3>Pattern &amp; Flow</h3>
-      <div class="panel-row">
-        <div class="panel-col">
-          <h4>Pattern (20 modes)</h4>
-          <label style="margin-bottom:3px;">
-            Mode
-            <select id="patternMode" style="margin-left:4px;">
-              <option value="plasma">Plasma</option>
-              <option value="lava">Lava veins</option>
-              <option value="ocean">Ocean waves</option>
-              <option value="diagonalBands">Diagonal bands</option>
-              <option value="horizontalWaves">Horizontal waves</option>
-              <option value="verticalWaves">Vertical waves</option>
-              <option value="rings">Rings</option>
-              <option value="ripples">Ripples</option>
-              <option value="crossRipples">Cross ripples</option>
-              <option value="turbulence">Turbulence</option>
-              <option value="storm">Storm front</option>
-              <option value="spiralIn">Spiral in</option>
-              <option value="spiralOut">Spiral out</option>
-              <option value="vortex">Vortex</option>
-              <option value="nebula">Nebula</option>
-              <option value="glitch">Glitch</option>
-              <option value="dunes">Dunes</option>
-              <option value="stairs">Stair steps</option>
-              <option value="wavesOffset">Offset waves</option>
-              <option value="cells">Cell clusters</option>
-            </select>
-          </label>
-          <div class="slider-row">
-            <label>Pixel grid <span class="value" id="gridVal"></span></label>
-            <input id="pixelGrid" type="range" min="16" max="256" value="128" />
-          </div>
-          <div class="slider-row">
-            <label>Warp strength <span class="value" id="warpVal"></span></label>
-            <input id="warp" type="range" min="0" max="40" value="16" />
-          </div>
-        </div>
-        <div class="panel-col">
-          <h4>Flow</h4>
-          <label style="margin-bottom:3px;">
-            Flow mode
-            <select id="flowMode" style="margin-left:4px;">
-              <option value="scrollX" selected>Scroll X</option>
-              <option value="scrollY">Scroll Y</option>
-              <option value="diag">Diagonal</option>
-              <option value="swirl">Swirl</option>
-              <option value="pulse">Pulse</option>
-              <option value="noise">Noise drift</option>
-              <option value="off">Static</option>
-            </select>
-          </label>
-          <div class="slider-row">
-            <label>Speed <span class="value" id="speedVal"></span></label>
-            <input id="animSpeed" type="range" min="0" max="100" value="40" />
-          </div>
-          <div class="slider-row">
-            <label>Contrast <span class="value" id="contrastVal"></span></label>
-            <input id="contrast" type="range" min="0" max="40" value="18" />
-          </div>
-        </div>
-      </div>
-      <div class="footer-note">
-        Pixel grid = exact number of pixels per side (preview & export).
-      </div>
-    </div>
-
-    <!-- Extras -->
-    <div class="panel">
-      <h3>Extras</h3>
-      <div class="panel-row">
-        <div class="panel-col">
-          <h4>Gradient</h4>
-          <div class="slider-row">
-            <label>Angle <span class="value" id="angleVal"></span></label>
-            <input id="angle" type="range" min="0" max="360" value="45" />
-          </div>
-          <div class="checkbox-row">
-            <input id="reverseGradient" type="checkbox" />
-            <label for="reverseGradient">Reverse gradient</label>
-          </div>
-        </div>
-        <div class="panel-col">
-          <h4>Noise</h4>
-          <div class="slider-row">
-            <label>Noise jitter <span class="value" id="noiseVal"></span></label>
-            <input id="noiseAmount" type="range" min="0" max="40" value="6" />
-          </div>
-          <div class="checkbox-row">
-            <input id="previewGrid" type="checkbox" />
-            <label for="previewGrid">Subtle pixel grid overlay</label>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Export -->
-    <div class="panel">
-      <h3>Export</h3>
-      <div class="panel-row">
-        <div class="panel-col">
-          <label>
-            Frames (loop)
-            <input id="exportFrames" type="number" min="4" max="64" step="4" value="24" />
-          </label>
-          <div class="small">Used for sprite sheet export.</div>
-        </div>
-        <div class="panel-col">
-          <div class="small">
-            Exported PNG resolution always matches the current pixel grid.
-          </div>
-        </div>
-      </div>
-      <div class="button-bar">
-        <button id="btnExportPNG" class="primary">Export PNG (current frame)</button>
-        <button id="btnExportSprite">Export sprite-sheet PNG (loop)</button>
-      </div>
-      <div class="footer-note">
-        Sprite sheet = frames laid out horizontally. Drop into your game / GIF tool and animate.
-      </div>
-    </div>
-  </div>
-</div>
-
-<script>
-/* ---------- Utils ---------- */
-function lerp(a, b, t) { return a + (b - a) * t; }
-function clamp01(x) { return x < 0 ? 0 : x > 1 ? 1 : x; }
-
-function hexToRgb(hex) {
-  hex = hex.replace("#", "");
-  if (hex.length === 3) {
-    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-  }
-  const num = parseInt(hex, 16);
-  return { r: (num >> 16) & 255, g: (num >> 8) & 255, b: num & 255 };
-}
-
-/* ---------- Palette setup ---------- */
-const colorSlotsEl = document.getElementById("colorSlots");
-const palettePresetEl = document.getElementById("palettePreset");
-const equalizeStopsEl = document.getElementById("equalizeStops");
-
-const PALETTES = {
-  lava:   ["#2b0000", "#4d0505", "#960707", "#ff1f1f", "#ffb347"],
-  demo:   ["#e9345c", "#ff9200", "#fede72", "#2cb299", "#74d6f5", "#b2689e"],
-  sunset: ["#ff3b3b", "#ff8a3b", "#ffd75d", "#f9f4e8"],
-  aqua:   ["#031b3b", "#0c88ff", "#36d9ff", "#8af4ff"],
-  cga:    ["#000000", "#55ffff", "#ff55ff", "#ffffff"],
-  mono:   ["#080808", "#f5f5f5"],
-};
-
-const MAX_STOPS = 6;
-let colorInputs = [];
-
-function createColorSlots() {
-  for (let i = 0; i < MAX_STOPS; i++) {
-    const row = document.createElement("div");
-    row.className = "color-row";
-
-    const colorInput = document.createElement("input");
-    colorInput.type = "color";
-    colorInput.value = "#ffffff";
-
-    const hexInput = document.createElement("input");
-    hexInput.type = "text";
-    hexInput.maxLength = 7;
-    hexInput.value = "#ffffff";
-
-    colorInput.addEventListener("input", () => {
-      hexInput.value = colorInput.value.toLowerCase();
-    });
-
-    hexInput.addEventListener("change", () => {
-      let v = hexInput.value.trim();
-      if (!v.startsWith("#")) v = "#" + v;
-      if (/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v)) {
-        hexInput.value = v.toLowerCase();
-        colorInput.value = v.toLowerCase();
-      }
-    });
-
-    row.appendChild(colorInput);
-    row.appendChild(hexInput);
-    colorSlotsEl.appendChild(row);
-    colorInputs.push({ colorInput, hexInput });
-  }
-}
-
-function applyPalettePreset(name) {
-  const list = PALETTES[name] || PALETTES.lava;
-  for (let i = 0; i < MAX_STOPS; i++) {
-    const val = list[i] || list[list.length - 1];
-    colorInputs[i].colorInput.value = val;
-    colorInputs[i].hexInput.value = val;
-  }
-}
-
-function getStops() {
-  const stops = [];
-  for (let i = 0; i < MAX_STOPS; i++) {
-    const hex = colorInputs[i].hexInput.value.trim();
-    if (!hex) continue;
-    if (!/^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(hex)) continue;
-    stops.push(hexToRgb(hex));
-  }
-  if (stops.length === 0) stops.push({ r: 255, g: 255, b: 255 });
-  return stops;
-}
-
-/* ---------- UI elements ---------- */
-const stepsEl = document.getElementById("steps");
-const posterizeEl = document.getElementById("posterize");
-const patternModeEl = document.getElementById("patternMode");
-const pixelGridEl = document.getElementById("pixelGrid");
-const warpEl = document.getElementById("warp");
-const flowModeEl = document.getElementById("flowMode");
-const animSpeedEl = document.getElementById("animSpeed");
-const contrastEl = document.getElementById("contrast");
-const angleEl = document.getElementById("angle");
-const reverseGradientEl = document.getElementById("reverseGradient");
-const noiseAmountEl = document.getElementById("noiseAmount");
-const previewGridEl = document.getElementById("previewGrid");
-const exportFramesEl = document.getElementById("exportFrames");
-
-const stepsVal = document.getElementById("stepsVal");
-const posterVal = document.getElementById("posterVal");
-const gridVal = document.getElementById("gridVal");
-const warpVal = document.getElementById("warpVal");
-const speedVal = document.getElementById("speedVal");
-const contrastVal = document.getElementById("contrastVal");
-const angleVal = document.getElementById("angleVal");
-const noiseVal = document.getElementById("noiseVal");
-
-function updateLabels() {
-  stepsVal.textContent = stepsEl.value;
-  posterVal.textContent = posterizeEl.value;
-  warpVal.textContent = (warpEl.value / 10).toFixed(1);
-  speedVal.textContent = (animSpeedEl.value / 10).toFixed(1);
-  contrastVal.textContent = (contrastEl.value / 10).toFixed(1);
-  angleVal.textContent = angleEl.value + "°";
-  noiseVal.textContent = (noiseAmountEl.value / 10).toFixed(1);
-}
-
-/* ---------- Gradient sampling (SAFE equalizeStops) ---------- */
-function sampleGradient(t, stops, posterLevels) {
-  t = clamp01(t);
-  if (posterLevels > 0) {
-    t = Math.round(t * (posterLevels - 1)) / (posterLevels - 1);
-  }
-  const n = stops.length;
-  if (n === 1) return stops[0];
-
-  const useEqualize =
-    !equalizeStopsEl ? true : !!equalizeStopsEl.checked; // never crash
-
-  let idxA, idxB, f;
-  if (useEqualize) {
-    const scaled = t * (n - 1);
-    idxA = Math.floor(scaled);
-    idxB = Math.min(idxA + 1, n - 1);
-    f = scaled - idxA;
-  } else {
-    // basic mapping: 0..1 across 0..(n-1)
-    const scaled = t * (n - 1);
-    idxA = Math.floor(scaled);
-    idxB = Math.min(idxA + 1, n - 1);
-    f = scaled - idxA;
-  }
-  const a = stops[idxA], b = stops[idxB];
-  return {
-    r: Math.round(lerp(a.r, b.r, f)),
-    g: Math.round(lerp(a.g, b.g, f)),
-    b: Math.round(lerp(a.b, b.b, f)),
-  };
-}
-
-/* ---------- Wave field (patterns) ---------- */
-function waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode) {
-  let x = nx;
-  let y = ny;
-  const w = warp / 100.0;
-  const t = timeMs * 0.0005;
-
-  if (flowMode === "scrollX") {
-    x += t * 0.6;
-  } else if (flowMode === "scrollY") {
-    y += t * 0.6;
-  } else if (flowMode === "diag") {
-    x += t * 0.5;
-    y += t * 0.35;
-  } else if (flowMode === "swirl") {
-    const cx = 0.5, cy = 0.5;
-    const dx = x - cx, dy = y - cy;
-    const r = Math.sqrt(dx * dx + dy * dy);
-    const ang = Math.atan2(dy, dx) + t * (0.4 + r * 0.8);
-    x = cx + Math.cos(ang) * r;
-    y = cy + Math.sin(ang) * r;
-  } else if (flowMode === "pulse") {
-    const puls = 0.2 + 0.2 * Math.sin(t * 5.0);
-    x += (x - 0.5) * puls;
-    y += (y - 0.5) * puls;
-  } else if (flowMode === "noise") {
-    x += Math.sin((x + t) * 7.3) * 0.04;
-    y += Math.cos((y - t) * 6.7) * 0.04;
-  }
-
-  x += Math.sin((y + t) * 6.0) * w;
-  y += Math.cos((x - t) * 5.0) * w;
-
-  let v = 0.0;
-
-  switch (pattern) {
-    case "plasma":
-      v = Math.sin(x * 8.0 + t * 2.0)
-        + Math.sin((x + y) * 6.0 - t * 1.7)
-        + Math.sin(Math.sqrt(x * x + y * y) * 10.0 + t * 1.3);
-      v /= 3.0;
-      break;
-    case "lava":
-      v = Math.sin(x * 10.0 + t * 3.0) * 0.6
-        + Math.cos(y * 6.0 - t * 2.0) * 0.4
-        + Math.sin((x - y) * 12.0 + t * 1.5) * 0.4;
-      v = Math.max(v, Math.sin(y * 14.0 - t * 4.0) * 0.4);
-      break;
-    case "ocean":
-      v = Math.sin(x * 4.0 + t * 1.4)
-        + Math.sin(y * 8.0 + t * 2.0) * 0.7
-        + Math.cos((x + y) * 3.0 - t * 1.0) * 0.5;
-      v /= 2.0;
-      break;
-    case "diagonalBands":
-      v = Math.sin((x * 8.0 + y * 12.0) + t * 3.0);
-      break;
-    case "horizontalWaves":
-      v = Math.sin(y * 12.0 + t * 3.0)
-        + Math.sin((y + x * 0.5) * 6.0 - t * 2.0) * 0.6;
-      v /= 1.6;
-      break;
-    case "verticalWaves":
-      v = Math.sin(x * 12.0 + t * 3.0)
-        + Math.sin((x + y * 0.5) * 6.0 - t * 2.0) * 0.6;
-      v /= 1.6;
-      break;
-    case "rings": {
-      const cx = 0.5, cy = 0.5;
-      const dx = x - cx, dy = y - cy;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      v = Math.sin(r * 18.0 - t * 2.0)
-        + Math.sin(r * 10.0 + t * 1.4) * 0.5;
-      v /= 1.5;
-      break;
-    }
-    case "ripples": {
-      const cx = 0.3 + 0.2 * Math.sin(t * 0.8);
-      const cy = 0.3 + 0.2 * Math.cos(t * 0.9);
-      const dx = x - cx, dy = y - cy;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      v = Math.sin(r * 22.0 - t * 4.0);
-      break;
-    }
-    case "crossRipples":
-      v = Math.sin((x + y) * 14.0 + t * 2.4)
-        + Math.sin((x - y) * 14.0 - t * 2.2);
-      v /= 2.0;
-      break;
-    case "turbulence":
-      v = Math.sin(x * 5.0 + Math.sin(y * 8.0 + t * 3.0))
-        + Math.sin(y * 9.0 + Math.cos(x * 7.0 - t * 2.0));
-      v /= 2.0;
-      break;
-    case "storm":
-      v = Math.sin((x * 7.0 + y * 3.0) + t * 4.0)
-        + Math.cos((x * 3.0 - y * 8.0) - t * 2.5)
-        + Math.sin(y * 18.0 - t * 5.0) * 0.6;
-      v /= 2.6;
-      break;
-    case "spiralIn": {
-      const cx = 0.5, cy = 0.5;
-      const dx = x - cx, dy = y - cy;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      const ang = Math.atan2(dy, dx);
-      v = Math.sin(r * 20.0 - ang * 4.0 + t * 3.0);
-      break;
-    }
-    case "spiralOut": {
-      const cx = 0.5, cy = 0.5;
-      const dx = x - cx, dy = y - cy;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      const ang = Math.atan2(dy, dx);
-      v = Math.sin(r * 20.0 + ang * 4.0 - t * 3.0);
-      break;
-    }
-    case "vortex": {
-      const cx = 0.5, cy = 0.5;
-      const dx = x - cx, dy = y - cy;
-      const r = Math.sqrt(dx * dx + dy * dy);
-      const ang = Math.atan2(dy, dx) + Math.sin(t * 1.5) * 0.3;
-      v = Math.sin((r * 22.0) + ang * 8.0 - t * 3.5);
-      break;
-    }
-    case "nebula":
-      v = Math.sin(x * 4.0 + t * 1.3)
-        + Math.sin((x + y) * 5.0 - t * 1.7)
-        + Math.sin((x * 2.0 - y * 6.0) + t * 2.1);
-      v /= 3.0;
-      break;
-    case "glitch":
-      v = Math.sin(x * 16.0 + t * 6.0)
-        + Math.sin(y * 3.0 - t * 1.5) * 0.5
-        + Math.sin((x * 9.0 - y * 7.0) + t * 4.0) * 0.6;
-      v /= 2.1;
-      break;
-    case "dunes":
-      v = Math.sin(x * 5.0 + t * 1.8)
-        + Math.sin((x * 2.5 + y * 4.0) * 2.0 - t * 0.9) * 0.6;
-      v /= 1.6;
-      break;
-    case "stairs":
-      v = Math.sin(Math.floor(x * 10.0) * 0.6 + t * 2.5)
-        + Math.sin(y * 10.0 - t * 3.0) * 0.6;
-      v /= 1.6;
-      break;
-    case "wavesOffset":
-      v = Math.sin(x * 8.0 + t * 2.5)
-        + Math.sin((x + 0.25) * 8.0 - t * 3.0) * 0.7
-        + Math.sin(y * 5.0 + t * 1.2) * 0.5;
-      v /= 2.0;
-      break;
-    case "cells":
-      v = Math.sin(Math.floor(x * 12.0) + t * 3.0)
-        + Math.cos(Math.floor(y * 12.0) - t * 2.0);
-      v /= 2.0;
-      break;
-    default:
-      v = Math.sin(x * 8.0 + y * 8.0 + t * 2.0);
-  }
-
-  const c = contrast / 20.0;
-  let tval = 0.5 + v * 0.5;
-  tval = Math.pow(clamp01(tval), 1.0 + c);
-  return clamp01(tval);
-}
-
-/* ---------- Preview & draw ---------- */
-const preview = document.getElementById("previewCanvas");
-const pctx = preview.getContext("2d");
-pctx.imageSmoothingEnabled = false;
-
-function syncCanvasToGrid() {
-  const grid = parseInt(pixelGridEl.value, 10) || 128;
-  preview.width = grid;
-  preview.height = grid;
-  pctx.imageSmoothingEnabled = false;
-  gridVal.textContent = grid + " × " + grid;
-}
-
-function drawFrame(ctx, size, timeMs) {
-  const stops = getStops();
-  const steps = parseInt(stepsEl.value, 10);
-  const poster = parseInt(posterizeEl.value, 10);
-  const pattern = patternModeEl.value;
-  const warp = parseInt(warpEl.value, 10);
-  const contrast = parseInt(contrastEl.value, 10);
-  const angleDeg = parseFloat(angleEl.value);
-  const reverse = reverseGradientEl.checked;
-  const noiseAmt = parseInt(noiseAmountEl.value, 10) / 255.0;
-  const showGrid = previewGridEl.checked;
-  const flowMode = flowModeEl.value;
-
-  const angleRad = angleDeg * Math.PI / 180;
-  const ca = Math.cos(angleRad);
-  const sa = Math.sin(angleRad);
-
-  const w = size;
-  const h = size;
-
-  ctx.clearRect(0, 0, w, h);
-
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      const nx = (x + 0.5) / w;
-      const ny = (y + 0.5) / h;
-
-      let gx = nx - 0.5, gy = ny - 0.5;
-      const gpos = gx * ca - gy * sa;
-      let baseGrad = 0.5 + gpos;
-      baseGrad = clamp01(baseGrad);
-
-      const waveVal = waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode);
-      let combined = baseGrad * 0.35 + waveVal * 0.65;
-
-      if (noiseAmt > 0) {
-        const seed = (x * 374761393 + y * 668265263) ^ (timeMs | 0);
-        const rnd = ((seed ^ (seed >> 13)) * 1274126177 >>> 16) & 255;
-        const n = (rnd / 255.0 - 0.5) * noiseAmt * 2.0;
-        combined = clamp01(combined + n);
-      }
-
-      if (reverse) combined = 1.0 - combined;
-
-      const q = Math.round(combined * (steps - 1)) / (steps - 1);
-      const color = sampleGradient(q, stops, poster);
-      ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
-      ctx.fillRect(x, y, 1, 1);
-    }
-  }
-
-  if (showGrid) {
-    ctx.strokeStyle = "rgba(0,0,0,0.22)";
-    ctx.lineWidth = 1;
-    for (let x = 0; x < w; x++) {
-      ctx.beginPath();
-      ctx.moveTo(x + 0.5, 0);
-      ctx.lineTo(x + 0.5, h);
-      ctx.stroke();
-    }
-    for (let y = 0; y < h; y++) {
-      ctx.beginPath();
-      ctx.moveTo(0, y + 0.5);
-      ctx.lineTo(w, y + 0.5);
-      ctx.stroke();
-    }
-  }
-}
-
-/* ---------- Animation loop ---------- */
-let startTime = performance.now();
-
-function loop() {
-  const now = performance.now();
-  let t = now - startTime;
-  if (flowModeEl.value === "off") t = 0;
-  else t *= (parseInt(animSpeedEl.value, 10) / 30.0);
-
-  drawFrame(pctx, preview.width, t);
-  requestAnimationFrame(loop);
-}
-
-/* ---------- Export helpers ---------- */
-function downloadDataUrl(url, filename) {
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-}
-
-document.getElementById("btnExportPNG").addEventListener("click", () => {
-  const size = preview.width; // exact pixel grid
-  const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
-  const ctx = canvas.getContext("2d");
-  ctx.imageSmoothingEnabled = false;
-
-  // Copy exactly the current preview pixels:
-  ctx.drawImage(preview, 0, 0);
-
-  const url = canvas.toDataURL("image/png");
-  downloadDataUrl(url, "pixel_wave_frame.png");
-});
-
-document.getElementById("btnExportSprite").addEventListener("click", () => {
-  const baseSize = preview.width; // exact pixel grid
-  const frames = parseInt(exportFramesEl.value, 10) || 24;
-
-  const sheet = document.createElement("canvas");
-  sheet.width = baseSize * frames;
-  sheet.height = baseSize;
-  const sctx = sheet.getContext("2d");
-  sctx.imageSmoothingEnabled = false;
-
-  for (let i = 0; i < frames; i++) {
-    const frameCanvas = document.createElement("canvas");
-    frameCanvas.width = baseSize;
-    frameCanvas.height = baseSize;
-    const fctx = frameCanvas.getContext("2d");
-    fctx.imageSmoothingEnabled = false;
-
-    let localT = (i / frames) * 4000;
-    if (flowModeEl.value === "off") localT = 0;
-    else localT *= (parseInt(animSpeedEl.value, 10) / 30.0);
-
-    drawFrame(fctx, baseSize, localT);
-    sctx.drawImage(frameCanvas, baseSize * i, 0);
-  }
-
-  const url = sheet.toDataURL("image/png");
-  downloadDataUrl(url, "pixel_wave_sprite_sheet.png");
-});
-
-/* ---------- Init ---------- */
-createColorSlots();
-applyPalettePreset("lava");
-syncCanvasToGrid();
-updateLabels();
-
-palettePresetEl.addEventListener("change", () => {
-  applyPalettePreset(palettePresetEl.value);
-});
-
-[
-  stepsEl, posterizeEl, warpEl,
-  animSpeedEl, contrastEl, angleEl, noiseAmountEl
-].forEach(el => el.addEventListener("input", updateLabels));
-
-pixelGridEl.addEventListener("input", () => {
-  syncCanvasToGrid();
-});
-
-if (equalizeStopsEl) {
-  equalizeStopsEl.addEventListener("change", () => {
-    // no-op but forces visual refresh on next frame
-  });
-}
 
 updateLabels();
 requestAnimationFrame(loop);
