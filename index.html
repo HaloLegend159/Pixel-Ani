@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Pixel Wave Lab — Dither Machine</title>
+  <title>Pixel Wave Lab — Sharp Pixels</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -76,7 +76,7 @@
     #previewCanvas {
       display: block;
       background: #111827;
-      width: 640px;   /* bigger preview */
+      width: 640px;   /* big preview window */
       height: 640px;
       image-rendering: pixelated;
     }
@@ -281,7 +281,7 @@
     <div class="header">
       <div>
         <div class="title">Pixel Wave Lab</div>
-        <div class="subtitle">20 animation patterns · adjustable pixel grid</div>
+        <div class="subtitle">20 animation patterns · sharp pixel grid</div>
       </div>
       <div class="badge">Dither Machine</div>
     </div>
@@ -389,7 +389,7 @@
         </div>
       </div>
       <div class="footer-note">
-        Pixel grid = how many blocks per side (e.g. 32×32, 80×80, 128×128). Bigger grid = more pixels, smaller blocks.
+        Pixel grid = how many blocks per side (approx). Bigger grid = more pixels, smaller blocks.
       </div>
     </div>
 
@@ -776,6 +776,8 @@ function waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode) {
 /* ==== Render ==== */
 const preview = document.getElementById("previewCanvas");
 const pctx = preview.getContext("2d");
+pctx.imageSmoothingEnabled = false;
+
 let lastSize = parseInt(exportSizeEl.value, 10) || 256;
 
 function resizePreviewIfNeeded() {
@@ -784,12 +786,16 @@ function resizePreviewIfNeeded() {
     lastSize = size;
     preview.width = size;
     preview.height = size;
+    pctx.imageSmoothingEnabled = false; // reset after resize
   }
 }
 
 function drawFrame(ctx, size, timeMs) {
-  const grid = parseInt(pixelGridEl.value, 10) || 32;
-  const cellSize = size / grid;
+  // integer-aligned pixels: choose a pixelSize, derive grid from that
+  const targetGrid = parseInt(pixelGridEl.value, 10) || 32;
+  const pixelSize = Math.max(1, Math.round(size / targetGrid));
+  const grid = Math.floor(size / pixelSize);
+  const cellSize = pixelSize;
   const cols = grid;
   const rows = grid;
 
@@ -826,6 +832,7 @@ function drawFrame(ctx, size, timeMs) {
       const waveVal = waveField(nx, ny, timeMs, pattern, warp, contrast, flowMode);
       let combined = baseGrad * 0.35 + waveVal * 0.65;
 
+      // noise jitter
       if (noiseAmt > 0) {
         const seed = (i * 374761393 + j * 668265263) ^ (timeMs | 0);
         const rnd = ((seed ^ (seed >> 13)) * 1274126177 >>> 16) & 255;
@@ -838,7 +845,12 @@ function drawFrame(ctx, size, timeMs) {
       const q = Math.round(combined * (steps - 1)) / (steps - 1);
       const color = sampleGradient(q, stops, poster);
       ctx.fillStyle = `rgb(${color.r},${color.g},${color.b})`;
-      ctx.fillRect(i * cellSize, j * cellSize, Math.ceil(cellSize) + 1, Math.ceil(cellSize) + 1);
+      ctx.fillRect(
+        i * cellSize,
+        j * cellSize,
+        cellSize,
+        cellSize
+      );
     }
   }
 
@@ -889,6 +901,7 @@ document.getElementById("btnExportPNG").addEventListener("click", () => {
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
 
   let t = performance.now() - startTime;
   if (flowModeEl.value === "off") t = 0;
@@ -907,6 +920,7 @@ document.getElementById("btnExportSprite").addEventListener("click", () => {
   canvas.width = size * frames;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
+  ctx.imageSmoothingEnabled = false;
 
   for (let i = 0; i < frames; i++) {
     let localT = (i / frames) * 4000;
@@ -917,6 +931,7 @@ document.getElementById("btnExportSprite").addEventListener("click", () => {
     temp.width = size;
     temp.height = size;
     const tctx = temp.getContext("2d");
+    tctx.imageSmoothingEnabled = false;
     drawFrame(tctx, size, localT);
 
     ctx.drawImage(temp, size * i, 0);
